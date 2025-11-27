@@ -76,12 +76,12 @@
       box-shadow:0 0 20px #ff1493;min-width: 50px; min-height: 50px;
     }
 
-    /* Кнопка магазину Etsy */
-    #etsyBtn{
+    /* Кнопка автора AR */
+    #authorBtn{
       position:fixed;bottom:max(20px,env(safe-area-inset-bottom,20px));left:20px;
-      background:#f16521;color:white;border:none;padding:10px 16px;
+      background:#4a90e2;color:white;border:none;padding:10px 16px;
       border-radius:25px;font-size:14px;font-weight:bold;z-index:1002;
-      box-shadow:0 0 15px #f16521;cursor:pointer;min-height: 40px;
+      box-shadow:0 0 15px #4a90e2;cursor:pointer;min-height: 40px;
       text-decoration: none;
       display: flex;
       align-items: center;
@@ -90,12 +90,12 @@
       transition: opacity 0.3s;
     }
 
-    #etsyBtn:hover{
+    #authorBtn:hover{
       opacity: 1;
     }
 
     /* Приховати кнопку під час гри в пазл */
-    #puzzleCanvas[style*="display: block"] ~ #etsyBtn {
+    #puzzleCanvas[style*="display: block"] ~ #authorBtn {
       display: none;
     }
 
@@ -125,9 +125,9 @@
   <!-- Кнопки управління -->
   <button id="langBtn">UA</button>
   <button id="soundBtn">On</button>
-  <a href="https://smartlessa.etsy.com" target="_blank" id="etsyBtn" 
-     data-en="🛍️ Shop" data-ua="🛍️ Магазин">
-    🛍️ Shop
+  <a href="https://smartlessa.etsy.com" target="_blank" id="authorBtn" 
+     data-en="👨‍💻 Author AR" data-ua="👨‍💻 Автор AR">
+    👨‍💻 Author AR
   </a>
 
   <!-- Екрани -->
@@ -224,7 +224,7 @@
       document.getElementById('hintTextOnPuzzle').textContent = ua ?
         'Перетягуй шматочки пальчиком!' : 'Drag the pieces with your finger!';
       document.getElementById('loadingIndicator').textContent = ua ? 'Завантаження...' : 'Loading...';
-      document.getElementById('etsyBtn').textContent = ua ? '🛍️ Магазин' : '🛍️ Shop';
+      document.getElementById('authorBtn').textContent = ua ? '👨‍💻 Автор AR' : '👨‍💻 Author AR';
     }
 
     document.getElementById('langBtn').onclick = () => {
@@ -266,16 +266,16 @@
           document.getElementById('puzzleCanvas').style.display = 'block';
           document.getElementById('closeBtn').style.display = 'block';
           document.getElementById('hintTextOnPuzzle').style.display = 'block';
-          document.getElementById('etsyBtn').style.display = 'none';
+          document.getElementById('authorBtn').style.display = 'none';
         } else if (name === 'loading') {
           document.getElementById('loadingIndicator').style.display = 'block';
-          document.getElementById('etsyBtn').style.display = 'none';
+          document.getElementById('authorBtn').style.display = 'none';
         } else {
           const screenElement = document.getElementById(name + 'Screen');
           if (screenElement) {
             screenElement.style.display = 'flex';
           }
-          document.getElementById('etsyBtn').style.display = 'flex';
+          document.getElementById('authorBtn').style.display = 'flex';
         }
       }
     };
