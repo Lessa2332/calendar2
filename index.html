@@ -107,11 +107,6 @@
       opacity: 1;
     }
 
-    /* Приховати кнопку під час гри в пазл */
-    #puzzleCanvas[style*="display: block"] ~ #authorBtn {
-      display: none;
-    }
-
     /* Індикатор завантаження */
     #loadingIndicator {
       position: fixed;
@@ -127,27 +122,6 @@
       display: none;
       font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
       font-weight: bold;
-    }
-
-    /* Кнопка скидання прогресу */
-    #resetBtn {
-      position: fixed;
-      bottom: max(90px, calc(env(safe-area-inset-bottom, 20px) + 70px));
-      right: 20px;
-      background: #ff6b6b;
-      color: white;
-      border: none;
-      padding: 12px 20px;
-      border-radius: 25px;
-      font-size: 16px;
-      font-weight: bold;
-      z-index: 1002;
-      box-shadow: 0 0 15px #ff6b6b;
-      cursor: pointer;
-      min-height: 44px;
-      font-family: 'Arial', sans-serif;
-      font-weight: bold;
-      display: none;
     }
 
     /* Заголовки */
@@ -185,7 +159,6 @@
   <!-- Кнопки управління -->
   <button id="langBtn">UA</button>
   <button id="soundBtn">On</button>
-  <button id="resetBtn" data-en="Reset Progress" data-ua="Скинути прогрес">Reset Progress</button>
   <a href="https://smartlessa.etsy.com" target="_blank" id="authorBtn" 
      data-en="👨‍💻 Author AR" data-ua="👨‍💻 Автор AR">
     👨‍💻 Author AR
@@ -218,7 +191,7 @@
   </audio>
 
   <a-scene embedded
-    mindar-image="imageTargetSrc: ./calendar.mind; filterMinCF:0.001; filterBeta:0.01; warmupTolerance:5; autoStart:false;"
+    mindar-image="imageTargetSrc: ./calendar.mind; filterMinCF:0.001; filterBeta:0.01; warmupTolerance:5; autoStart:false; maxTrack: 2; missTolerance: 0;"
     renderer="colorManagement:true; physicallyCorrectLights:true; antialias:true; alpha:true"
     vr-mode-ui="enabled:false"
     device-orientation-permission-ui="enabled:false"
@@ -230,23 +203,24 @@
   <script>
     console.log('🚀 Ініціалізація додатку...');
     
-    // Константи для оптимізації
-    const MAX_IMAGE_SIZE = 1200; // Максимальний розмір зображення
-    const CONFETTI_COUNT = 60;   // Зменшена кількість конфетті
-    const RESIZE_DELAY = 150;    // Дебаунс для resize
+    // Константи
+    const MAX_IMAGE_SIZE = 1200;
+    const CONFETTI_COUNT = 60;
+    const RESIZE_DELAY = 150;
     
     const PUZZLES = Array.from({length:12},(_,i)=>({
       id: i,
-      image: `images/${String(i+1).padStart(2,'0')}.jpg?size=${MAX_IMAGE_SIZE}` // Додано параметр для оптимізації
+      image: `images/${String(i+1).padStart(2,'0')}.jpg`
     }));
     
+    // Глобальні змінні
     let currentPuzzle = null;
     let started = false;
     let isUA = false;
-    let arSystem = null;
     let isPuzzleActive = false;
     let resizeTimeout = null;
-    let saveProgressTimeout = null;
+    let arScene = null;
+    let arStarted = false;
 
     let completed = new Set();
     try {
@@ -263,15 +237,11 @@
     }
 
     function saveProgress() {
-      // Дебаунс збереження прогресу
-      clearTimeout(saveProgressTimeout);
-      saveProgressTimeout = setTimeout(() => {
-        try {
-          localStorage.setItem('magicPuzzleProgress', JSON.stringify([...completed]));
-        } catch (e) {
-          console.error('❌ Помилка збереження прогресу:', e);
-        }
-      }, 1000); // Зберігаємо не частіше ніж раз на секунду
+      try {
+        localStorage.setItem('magicPuzzleProgress', JSON.stringify([...completed]));
+      } catch (e) {
+        console.error('❌ Помилка збереження прогресу:', e);
+      }
     }
 
     function resetProgress() {
@@ -280,20 +250,12 @@
         saveProgress();
         console.log('♻️ Прогрес скинуто');
         
-        // Перезавантажуємо сторінку для оновлення стану
         if (currentPuzzle) {
           currentPuzzle.cleanup();
           currentPuzzle = null;
         }
         isPuzzleActive = false;
-        
-        // Повертаємося до початку
-        if (arSystem && arSystem.started) {
-          arSystem.stop();
-          if (arSystem.video && arSystem.video.srcObject) {
-            arSystem.video.srcObject.getTracks().forEach(track => track.stop());
-          }
-        }
+        restartAR();
         screens.show('start');
         started = false;
       }
@@ -323,7 +285,6 @@
         'Перетягуй шматочки пальчиком!' : 'Drag the pieces with your finger!';
       document.getElementById('loadingIndicator').textContent = ua ? 'Завантаження...' : 'Loading...';
       document.getElementById('authorBtn').textContent = ua ? '👨‍💻 Автор AR' : '👨‍💻 Author AR';
-      document.getElementById('resetBtn').textContent = ua ? 'Скинути прогрес' : 'Reset Progress';
     }
 
     document.getElementById('langBtn').onclick = () => {
@@ -347,8 +308,6 @@
       document.getElementById('soundBtn').textContent = soundOn ? 'On' : 'Off';
     };
 
-    document.getElementById('resetBtn').onclick = resetProgress;
-
     const screens = {
       show(name) {
         console.log('🖥️ Перехід на екран:', name);
@@ -362,60 +321,82 @@
         document.getElementById('closeBtn').style.display = 'none';
         document.getElementById('hintTextOnPuzzle').style.display = 'none';
         document.getElementById('loadingIndicator').style.display = 'none';
-        document.getElementById('resetBtn').style.display = 'none';
         
         if (name === 'puzzle') {
           document.getElementById('puzzleCanvas').style.display = 'block';
           document.getElementById('closeBtn').style.display = 'block';
           document.getElementById('hintTextOnPuzzle').style.display = 'block';
           document.getElementById('authorBtn').style.display = 'none';
-          document.getElementById('resetBtn').style.display = 'none';
           isPuzzleActive = true;
           
-          // Зупиняємо AR та повністю вимикаємо камеру
-          if (arSystem && arSystem.started) {
-            try {
-              arSystem.stop();
-              console.log('⏸️ AR система зупинена');
-              
-              // Повне вимикання камери
-              if (arSystem.video && arSystem.video.srcObject) {
-                arSystem.video.srcObject.getTracks().forEach(track => {
-                  track.stop();
-                });
-                arSystem.video.srcObject = null;
-              }
-            } catch (e) {
-              console.error('❌ Помилка зупинки AR:', e);
-            }
-          }
+          // Зупиняємо AR
+          stopAR();
+          
         } else if (name === 'loading') {
           document.getElementById('loadingIndicator').style.display = 'block';
           document.getElementById('authorBtn').style.display = 'none';
-          document.getElementById('resetBtn').style.display = 'none';
         } else {
           const screenElement = document.getElementById(name + 'Screen');
           if (screenElement) {
             screenElement.style.display = 'flex';
           }
           document.getElementById('authorBtn').style.display = 'flex';
-          document.getElementById('resetBtn').style.display = 'block';
           isPuzzleActive = false;
           
           // Запускаємо AR на екрані підказки
-          if (name === 'hint' && arSystem && !arSystem.started) {
+          if (name === 'hint') {
             setTimeout(() => {
-              try {
-                arSystem.start();
-                console.log('🎯 AR система запущена (екран підказки)');
-              } catch (e) {
-                console.error('❌ Помилка запуску AR:', e);
-              }
-            }, 500);
+              startAR();
+            }, 300);
           }
         }
       }
     };
+
+    // Функції для управління AR
+    function startAR() {
+      if (!arScene || arStarted || isPuzzleActive) return;
+      
+      try {
+        const arSystem = arScene.systems['mindar-image-system'];
+        if (arSystem && !arSystem.started) {
+          arSystem.start();
+          arStarted = true;
+          console.log('🎯 AR система запущена');
+        }
+      } catch (e) {
+        console.error('❌ Помилка запуску AR:', e);
+        arStarted = false;
+      }
+    }
+
+    function stopAR() {
+      if (!arScene || !arStarted) return;
+      
+      try {
+        const arSystem = arScene.systems['mindar-image-system'];
+        if (arSystem && arSystem.started) {
+          arSystem.stop();
+          arStarted = false;
+          console.log('⏸️ AR система зупинена');
+          
+          // Вимикаємо камеру
+          if (arSystem.video && arSystem.video.srcObject) {
+            const tracks = arSystem.video.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+          }
+        }
+      } catch (e) {
+        console.error('❌ Помилка зупинки AR:', e);
+      }
+    }
+
+    function restartAR() {
+      stopAR();
+      setTimeout(() => {
+        startAR();
+      }, 500);
+    }
 
     class PuzzleRenderer {
       constructor(c) {
@@ -424,7 +405,7 @@
         this.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
         this.resize();
         
-        // Дебаунс resize для продуктивності
+        // Дебаунс resize
         window.addEventListener('resize', () => {
           clearTimeout(resizeTimeout);
           resizeTimeout = setTimeout(() => this.resize(), RESIZE_DELAY);
@@ -447,17 +428,17 @@
         }
       }
       
-      render(p, dragged) {
+      render(pieces, dragged) {
         const width = window.innerWidth;
         const height = window.innerHeight;
         
         this.ctx.clearRect(0, 0, width, height);
-        if (!p || !p.length) return;
+        if (!pieces || !pieces.length) return;
         
         const maxSize = Math.min(width * 0.85, height * 0.65);
         const cell = Math.max(maxSize / 3, 80);
         const w = cell;
-        const h = cell * (p[0].aspectRatio || 1);
+        const h = cell * (pieces[0].aspectRatio || 1);
         const totalW = w * 3;
         const totalH = h * 3;
         const cx = (width - totalW) / 2;
@@ -467,9 +448,8 @@
         this.ctx.lineWidth = 6;
         this.ctx.strokeRect(cx - 10, cy - 10, totalW + 20, totalH + 20);
         
-        p.forEach(piece => {
+        pieces.forEach(piece => {
           try {
-            // Малюємо шматок з основного зображення (оптимізовано)
             this.ctx.drawImage(
               piece.sourceImage,
               piece.sx, piece.sy, piece.sw, piece.sh,
@@ -501,8 +481,7 @@
       async init() {
         console.log('🧩 Ініціалізація пазла:', this.cfg.id);
         try {
-          const img = await this.loadAndOptimizeImage(this.cfg.image);
-          
+          const img = await this.loadImage(this.cfg.image);
           await this.createPieces(img);
           this.setupEvents();
           this.rend.render(this.pieces);
@@ -512,7 +491,7 @@
         }
       }
       
-      async loadAndOptimizeImage(src) {
+      async loadImage(src) {
         return new Promise((resolve, reject) => {
           const image = new Image();
           image.crossOrigin = "anonymous";
@@ -520,7 +499,7 @@
           image.onload = () => {
             console.log('✅ Зображення завантажено:', src, `(${image.width}x${image.height})`);
             
-            // Якщо зображення занадто велике - масштабуємо
+            // Масштабуємо великі зображення
             if (image.width > MAX_IMAGE_SIZE || image.height > MAX_IMAGE_SIZE) {
               const scale = MAX_IMAGE_SIZE / Math.max(image.width, image.height);
               const canvas = document.createElement('canvas');
@@ -528,7 +507,6 @@
               canvas.height = image.height * scale;
               const ctx = canvas.getContext('2d');
               
-              // Високоякісне масштабування
               ctx.imageSmoothingEnabled = true;
               ctx.imageSmoothingQuality = 'high';
               ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -546,12 +524,8 @@
             }
           };
           
-          image.onerror = (e) => {
-            console.error('❌ Помилка завантаження зображення:', src, e);
-            reject(e);
-          };
-          
-          image.src = src + (src.includes('?') ? '&' : '?') + 't=' + Date.now();
+          image.onerror = reject;
+          image.src = src + '?t=' + Date.now();
         });
       }
       
@@ -576,7 +550,6 @@
         const minY = safeAreaPadding;
         const maxY = height - pieceHeight - safeAreaPadding;
         
-        // Створюємо всі шматки з одним основним зображенням
         for (let r = 0; r < 3; r++) {
           for (let c = 0; c < 3; c++) {
             let x, y;
@@ -590,7 +563,6 @@
               
               let hasOverlap = false;
               for (const existingPiece of this.pieces) {
-                // Проста перевірка перетину (без Math.hypot для продуктивності)
                 const dx = Math.abs(x - existingPiece.x);
                 const dy = Math.abs(y - existingPiece.y);
                 if (dx < pieceWidth * 1.2 && dy < pieceHeight * 1.2) {
@@ -599,13 +571,10 @@
                 }
               }
               
-              if (!hasOverlap || attempts >= maxAttempts) {
-                break;
-              }
+              if (!hasOverlap || attempts >= maxAttempts) break;
             } while (attempts < maxAttempts);
             
             if (attempts >= maxAttempts) {
-              // Гарантоване розміщення
               const gridCol = c;
               const gridRow = r;
               x = ox + (gridCol - 1) * pieceWidth * 1.5;
@@ -616,7 +585,7 @@
             }
 
             this.pieces.push({
-              sourceImage: img, // Одне зображення для всіх шматків
+              sourceImage: img,
               sx: c * sw,
               sy: r * sh,
               sw: sw,
@@ -649,14 +618,12 @@
           const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
           const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
           
-          // Шукаємо шматок з кінця (останні накладені)
           for (let i = this.pieces.length - 1; i >= 0; i--) {
             const piece = this.pieces[i];
             if (x >= piece.x && x <= piece.x + piece.width && 
                 y >= piece.y && y <= piece.y + piece.height) {
               this.drag = piece;
               this.off = { x: x - piece.x, y: y - piece.y };
-              // Переміщуємо на верх (останній у масиві)
               this.pieces.splice(i, 1);
               this.pieces.push(piece);
               break;
@@ -679,7 +646,6 @@
         const end = () => {
           if (!this.drag) return;
           
-          // Перевірка наближення до цільової позиції
           const dx = this.drag.x + this.drag.width/2 - (this.drag.tx + this.drag.width/2);
           const dy = this.drag.y + this.drag.height/2 - (this.drag.ty + this.drag.height/2);
           const distance = Math.sqrt(dx*dx + dy*dy);
@@ -710,7 +676,6 @@
           completed.add(this.cfg.id);
           saveProgress();
           
-          // Оптимізовані конфетті
           confetti({ 
             particleCount: CONFETTI_COUNT, 
             spread: 60, 
@@ -732,9 +697,7 @@
       
       cleanup() {
         const c = this.rend.c;
-        // Очищаємо події
         c.replaceWith(c.cloneNode(true));
-        // Дозволяємо GC зібрати зображення
         this.pieces.forEach(p => {
           p.sourceImage = null;
         });
@@ -811,29 +774,16 @@
       if (remaining.length === 0) {
         console.log('🏆 Всі пазли завершено!');
         screens.show('start');
-        if (arSystem && arSystem.started) {
-          arSystem.stop();
-          console.log('📹 AR система зупинена');
-        }
+        stopAR();
         started = false;
         return;
       }
       
       screens.show('hint');
       
-      // Перезапускаємо AR систему для нового сканування
-      if (arSystem) {
-        setTimeout(() => {
-          try {
-            if (!arSystem.started) {
-              arSystem.start();
-              console.log('🔄 AR система запущена для нового сканування');
-            }
-          } catch (e) {
-            console.error('❌ Помилка запуску AR:', e);
-          }
-        }, 500); // Збільшена затримка для стабільності
-      }
+      setTimeout(() => {
+        startAR();
+      }, 500);
     }
 
     document.getElementById('startBtn').onclick = async () => {
@@ -854,19 +804,13 @@
         
         console.log('📹 Камера успішно запущена');
         
-        arSystem = document.querySelector('a-scene').systems['mindar-image-system'];
-        
-        try {
-          if (!arSystem.started) {
-            arSystem.start();
-            console.log('🎯 AR система запущена');
-          }
-        } catch (e) {
-          console.error('❌ Помилка запуску AR:', e);
-        }
-        
         screens.show('hint');
         playMusic();
+        
+        // Запускаємо AR після показу екрану
+        setTimeout(() => {
+          startAR();
+        }, 300);
         
       } catch (error) {
         console.error('❌ Помилка доступу до камери:', error);
@@ -886,78 +830,67 @@
       
       setTimeout(() => {
         nextPuzzle();
-      }, 300); // Збільшена затримка для GC
+      }, 300);
     };
 
-    // Створюємо всі AR entity заздалегідь
-    const scene = document.querySelector('a-scene');
-    const arEntities = [];
+    // Ініціалізація AR при завантаженні сторінки
+    arScene = document.querySelector('a-scene');
     
-    PUZZLES.forEach(cfg => {
-      const entity = document.createElement('a-entity');
-      entity.setAttribute('mindar-image-target', `targetIndex: ${cfg.id}`);
+    arScene.addEventListener('renderstart', () => {
+      console.log('🎮 A-Frame сцена готова');
       
-      entity.addEventListener('targetFound', () => {
-        console.log('🎯 Знайдено маркер:', cfg.id);
+      // Створюємо AR entity
+      PUZZLES.forEach(cfg => {
+        const entity = document.createElement('a-entity');
+        entity.setAttribute('mindar-image-target', `targetIndex: ${cfg.id}`);
         
-        if (isPuzzleActive) {
-          console.log('⛔ Ігноруємо маркер: пазл вже активний');
-          return;
-        }
+        entity.addEventListener('targetFound', () => {
+          console.log('🎯 Знайдено маркер:', cfg.id);
+          
+          if (isPuzzleActive) {
+            console.log('⛔ Ігноруємо маркер: пазл вже активний');
+            return;
+          }
+          
+          if (completed.has(cfg.id)) {
+            console.log('✅ Пропускаємо вже зібраний пазл:', cfg.id);
+            return;
+          }
+          
+          console.log('🎮 Запускаємо новий пазл:', cfg.id);
+          currentPuzzle = new PuzzleEngine(cfg, new PuzzleRenderer(document.getElementById('puzzleCanvas')));
+          screens.show('puzzle');
+        });
         
-        if (completed.has(cfg.id)) {
-          console.log('✅ Пропускаємо вже зібраний пазл:', cfg.id);
-          return;
-        }
+        entity.addEventListener('targetLost', () => {
+          console.log('👻 Втрачено маркер:', cfg.id);
+        });
         
-        console.log('🎮 Запускаємо новий пазл:', cfg.id);
-        currentPuzzle = new PuzzleEngine(cfg, new PuzzleRenderer(document.getElementById('puzzleCanvas')));
-        screens.show('puzzle');
-      });
-      
-      entity.addEventListener('targetLost', () => {
-        console.log('👻 Втрачено маркер:', cfg.id);
-      });
-      
-      arEntities.push(entity);
-    });
-
-    scene.addEventListener('loaded', () => {
-      console.log('🎮 A-Frame сцена завантажена');
-      arSystem = scene.systems['mindar-image-system'];
-      
-      // Додаємо всі entity одночасно
-      arEntities.forEach(entity => {
-        scene.appendChild(entity);
+        arScene.appendChild(entity);
       });
       
       setLanguage(false);
-      console.log('✅ Додаток ініціалізовано (оптимізована версія)');
+      console.log('✅ Додаток ініціалізовано');
     });
 
-    // Очищення пам'яті
-    window.addEventListener('beforeunload', () => {
-      if (currentPuzzle) {
-        currentPuzzle.cleanup();
-        currentPuzzle = null;
-      }
-      isPuzzleActive = false;
-      
-      // Очищаємо таймери
-      clearTimeout(resizeTimeout);
-      clearTimeout(saveProgressTimeout);
-      
-      if (arSystem && arSystem.started) {
-        arSystem.stop();
-      }
-    });
-
+    // Додаємо обробник помилок
     window.addEventListener('error', (e) => {
       console.error('💥 Глобальна помилка:', e.error);
     });
 
     window.addEventListener('unhandledrejection', (e) => {
       console.error('💥 Необроблена проміс-помилка:', e.reason);
+    });
+
+    // Очищення при закритті
+    window.addEventListener('beforeunload', () => {
+      if (currentPuzzle) {
+        currentPuzzle.cleanup();
+        currentPuzzle = null;
+      }
+      isPuzzleActive = false;
+      stopAR();
+      clearTimeout(resizeTimeout);
     });
 
     screens.show('start');
