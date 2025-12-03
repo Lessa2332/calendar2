@@ -1,779 +1,894 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Magic Puzzle </title>
-
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-
-  <style>
-    *,*::before,*::after{box-sizing:border-box}
-    body,html{
-      margin:0;padding:0;width:100%;height:100%;overflow:hidden;
-      background:transparent !important;
-      font-family:'Arial Rounded MT Bold', 'Arial', 'Helvetica Neue', sans-serif;
-      touch-action:none;-webkit-tap-highlight-color:transparent;
-    }
-    a-scene{
-      position:fixed;inset:0;background:transparent !important;
-      pointer-events: none;
-    }
-    #puzzleCanvas{
-      position:fixed;inset:0;z-index:100;background:transparent;display:none;
-      pointer-events: auto;
-    }
-    #closeBtn{
-      position:fixed;top:max(15px,env(safe-area-inset-top,15px));right:15px;
-      width:60px;height:60px;background:#ff1493;color:white;border:none;
-      border-radius:50%;font-size:32px;z-index:1002;box-shadow:0 0 30px #ff1493;
-      cursor:pointer;display:none;
-      font-family: 'Arial', sans-serif;
-      font-weight: bold;
-    }
-    .screen{
-      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-      flex-direction:column;color:white;z-index:1001;text-align:center;
-      background:rgba(0,0,0,0.85);
-      padding:20px;
-    }
-    #startScreen{
-      background:radial-gradient(circle at center,rgba(255,20,147,0.7),transparent);
-    }
-    #winScreen h1{animation:pulse 1.5s infinite}
-    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
-    button{
-      background:#ff1493;color:white;border:none;padding:18px 45px;
-      border-radius:50px;font-size:30px;cursor:pointer;
-      box-shadow:0 0 50px #ff1493;margin:15px;transition:.3s;
-      min-height: 60px;
-      font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
-      font-weight: bold;
-      letter-spacing: 0.5px;
-    }
-    button:active{transform:scale(0.95)}
-
-    #hintTextOnPuzzle{
-      position:fixed;top:10px;left:10px;right:10px;color:white;font-weight:bold;
-      text-align:center;z-index:1002;font-size:clamp(16px,4vw,24px);
-      text-shadow:2px 2px 8px rgba(0,0,0,0.8);pointer-events:none;display:none;
-      background: rgba(0,0,0,0.5);
-      padding: 10px;
-      border-radius: 10px;
-      font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
-      font-weight: bold;
-    }
-
-    /* Кнопка перемикання мови */
-    #langBtn{
-      position:fixed;top:max(15px,env(safe-area-inset-top,15px));left:15px;
-      background:#ff1493;color:white;border:none;padding:12px 18px;
-      border-radius:30px;font-size:18px;font-weight:bold;z-index:1002;
-      box-shadow:0 0 20px #ff1493;cursor:pointer;min-height: 44px;
-      font-family: 'Arial', sans-serif;
-      font-weight: bold;
-    }
-
-    /* Кнопка звуку */
-    #soundBtn{
-      position:fixed;bottom:max(20px,env(safe-area-inset-bottom,20px));right:20px;
-      background:rgba(255,20,147,0.7);color:white;border:none;padding:15px;
-      border-radius:50%;font-size:28px;z-index:1002;cursor:pointer;
-      box-shadow:0 0 20px #ff1493;min-width: 50px; min-height: 50px;
-      font-family: 'Arial', sans-serif;
-      font-weight: bold;
-    }
-
-    /* Кнопка автора AR */
-    #authorBtn{
-      position:fixed;bottom:max(20px,env(safe-area-inset-bottom,20px));left:20px;
-      background:#4a90e2;color:white;border:none;padding:10px 16px;
-      border-radius:25px;font-size:14px;font-weight:bold;z-index:1002;
-      box-shadow:0 0 15px #4a90e2;cursor:pointer;min-height: 40px;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      opacity: 0.9;
-      transition: opacity 0.3s;
-      font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
-      font-weight: bold;
-    }
-
-    #authorBtn:hover{
-      opacity: 1;
-    }
-
-    /* Приховати кнопку під час гри в пазл */
-    #puzzleCanvas[style*="display: block"] ~ #authorBtn {
-      display: none;
-    }
-
-    /* Індикатор завантаження */
-    #loadingIndicator {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: white;
-      font-size: 24px;
-      z-index: 1003;
-      background: rgba(0,0,0,0.8);
-      padding: 20px;
-      border-radius: 15px;
-      display: none;
-      font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
-      font-weight: bold;
-    }
-
-    /* Заголовки */
-    h1, h2 {
-      font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
-      font-weight: bold;
-      margin: 10px 0;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    }
-
-    h1 {
-      font-size: clamp(28px, 8vw, 48px);
-    }
-
-    h2 {
-      font-size: clamp(22px, 6vw, 36px);
-    }
-
-    p {
-      font-family: 'Arial', sans-serif;
-      font-size: clamp(16px, 4vw, 20px);
-      margin: 8px 0;
-      line-height: 1.4;
-      max-width: 90%;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔮 Куля Пророцтв - Трекінг долоні</title>
+    
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #000;
+            color: white;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+        
+        #cameraView {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            z-index: 1;
+        }
+        
+        #canvas3d {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 15px;
+            border: 2px solid #8a2be2;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .prophecy-display {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 25px 35px;
+            border-radius: 25px;
+            text-align: center;
+            min-width: 320px;
+            opacity: 0;
+            border: 3px solid #ffcc00;
+            box-shadow: 0 0 40px rgba(255, 204, 0, 0.7);
+            display: none;
+        }
+        
+        .prophecy-text {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffcc00;
+            text-shadow: 0 0 15px rgba(255, 204, 0, 0.9);
+            margin-bottom: 15px;
+        }
+        
+        /* ТАЙМЕР 3 СЕКУНДИ */
+        .timer {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            font-size: 64px;
+            color: #00ff00;
+            text-shadow: 0 0 20px #00ff00;
+            opacity: 0;
+            font-weight: bold;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-top: 3px solid #00aaff;
+            font-size: 18px;
+        }
+        
+        .hand-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 3;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 25px;
+            border-radius: 20px;
+            border: 3px solid #00ffaa;
+            min-width: 300px;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            font-size: 28px;
+        }
+        
+        .loading-text {
+            text-align: center;
+        }
+        
+        .countdown-animation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            font-size: 100px;
+            color: #ff0000;
+            text-shadow: 0 0 30px #ff0000;
+            opacity: 0;
+            font-weight: bold;
+        }
+        
+        /* КНОПКА ДЛЯ ТЕСТУ */
+        .test-button {
+            position: absolute;
+            bottom: 100px;
+            right: 20px;
+            z-index: 1000;
+            background: #ff00ff;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            display: none;
+        }
+    </style>
 </head>
 <body>
+    <!-- ЗАВАНТАЖЕННЯ -->
+    <div class="loading" id="loadingScreen">
+        <div class="loading-text">
+            <div style="font-size: 60px; margin-bottom: 20px;">🔮</div>
+            <div>Завантаження Кулі Пророцтв...</div>
+            <div style="margin-top: 20px; font-size: 18px; color: #00ffaa;">Тривалість: <span id="loadTimer">3</span> сек</div>
+        </div>
+    </div>
 
-  <canvas id="puzzleCanvas"></canvas>
-  <button id="closeBtn">X</button>
-  <div id="hintTextOnPuzzle"></div>
-  <div id="loadingIndicator">Loading...</div>
+    <!-- ГАЙД ДОЛОНІ -->
+    <div class="hand-guide" id="handGuide">
+        <div style="font-size: 70px; margin-bottom: 15px;">🖐️</div>
+        <div style="font-size: 22px; margin-bottom: 10px; color: #00ffaa;">Покажіть долоню камері</div>
+        <div style="color: #ccc; font-size: 16px;">Тримайте руку стабільно 3 секунди</div>
+    </div>
 
-  <!-- Кнопки управління -->
-  <button id="langBtn">UA</button>
-  <button id="soundBtn">On</button>
-  <a href="https://smartlessa.etsy.com" target="_blank" id="authorBtn" 
-     data-en="👨‍💻 Author AR" data-ua="👨‍💻 Автор AR">
-    👨‍💻 Author AR
-  </a>
+    <!-- ІНФОПАНЕЛЬ -->
+    <div class="info-panel">
+        <h1 style="color: #ffcc00; margin-bottom: 10px; font-size: 24px;">🔮 КУЛЯ ПРОРОЦТВ</h1>
+        <p>Торкніться кулі пальцем на 3 секунди</p>
+        <p style="margin-top: 10px; color: #00ffaa; font-size: 20px;">
+            Пророцтва: <span id="prophecyCount">0</span>
+        </p>
+    </div>
 
-  <!-- Екрани -->
-  <div id="startScreen" class="screen">
-    <h1 data-en="Magic Puzzle" data-ua="Магічний пазл">Magic Puzzle</h1>
-    <p data-en="12 magical pictures for you" data-ua="12 чарівних картинок для тебе">12 magical pictures for you</p>
-    <button id="startBtn" data-en="START THE MAGIC!" data-ua="ПОЧАТИ МАГІЮ!">START THE MAGIC!</button>
-  </div>
+    <!-- ТАЙМЕР 3 СЕКУНДИ -->
+    <div class="timer" id="timer">3</div>
 
-  <div id="hintScreen" class="screen" style="display:none">
-    <h2 data-en="Find any picture from the calendar!" data-ua="Знайди будь-яку картинку в календарі!">
-      Find any picture from the calendar!
-    </h2>
-    <p data-en="Show it to the camera" data-ua="Покажи її камері">
-      Show it to the camera
-    </p>
-  </div>
+    <!-- АНІМАЦІЯ ВІДЛІКУ -->
+    <div class="countdown-animation" id="countdownAnim"></div>
 
-  <div id="winScreen" class="screen" style="display:none">
-    <h1 data-en="HURRAY!" data-ua="Так!">HURRAY!</h1>
-   <p data-en="Puzzle completed! Well done!" data-ua="Пазл зібрано! Молодець!">Puzzle completed! Well done!</p>
-  </div>
+    <!-- ПРОРОЦТВО -->
+    <div class="prophecy-display" id="prophecyDisplay">
+        <div class="prophecy-text" id="prophecyText"></div>
+        <div style="color: #aaa; font-size: 18px; margin-top: 10px;">✨ Торкніться знову через 3 секунди ✨</div>
+    </div>
 
-  <!-- Фонова музика -->
-  <audio id="bgMusic" loop preload="auto">
-    <source src="fon23.mp3" type="audio/mp3">
-  </audio>
+    <!-- ІНСТРУКЦІЇ -->
+    <div class="instructions">
+        <p>🖐️ <span style="color: #00ffaa; font-weight: bold;">Долоня камері</span> → 👆 <span style="color: #ffcc00; font-weight: bold;">Торкніться кулі на 3 секунди</span> → 🔮 <span style="color: #ff00ff; font-weight: bold;">Отримайте пророцтво!</span></p>
+    </div>
 
-  <a-scene embedded
-    mindar-image="imageTargetSrc: ./calendar.mind; filterMinCF:0.001; filterBeta:0.01; warmupTolerance:5; autoStart:false;"
-    renderer="colorManagement:true; physicallyCorrectLights:true; antialias:true; alpha:true"
-    vr-mode-ui="enabled:false"
-    device-orientation-permission-ui="enabled:false"
-    loading-screen="enabled:false"
-    style="position:fixed;inset:0;background:transparent !important;">
-    <a-camera active="false" mindar-image-target></a-camera>
-  </a-scene>
+    <!-- КНОПКА ТЕСТУ -->
+    <button class="test-button" id="testButton" onclick="startCountdown()">Тест: Запустити 3 секунди</button>
 
-  <script>
-    console.log('🚀 Ініціалізація додатку...');
-    
-    const PUZZLES = Array.from({length:12},(_,i)=>({
-      id: i,
-      image: `images/${String(i+1).padStart(2,'0')}.jpg`
-    }));
-    
-    let currentPuzzle = null;
-    let started = false;
-    let isUA = false;
-    let arSystem = null;
+    <!-- ВІДЕО ТА 3D -->
+    <video id="cameraView" autoplay playsinline></video>
+    <canvas id="canvas3d"></canvas>
 
-    let completed = new Set();
-    try {
-      const saved = localStorage.getItem('magicPuzzleProgress');
-      if (saved) {
-        const completedArray = JSON.parse(saved);
-        if (Array.isArray(completedArray)) {
-          completed = new Set(completedArray);
-          console.log('📊 Завантажено прогрес:', completed.size + '/12');
-        }
-      }
-    } catch (e) {
-      console.error('❌ Помилка завантаження прогресу:', e);
-    }
+    <script>
+        // ========== КОНФІГУРАЦІЯ ==========
+        const CONFIG = {
+            COUNTDOWN_TIME: 3,
+            PROPHECY_TIME: 5,
+            SPHERE_RADIUS: 0.3,
+            TOUCH_DISTANCE: 0.5,
+            TEXT_SCALE_MULTIPLIER: 3
+        };
 
-    function saveProgress() {
-      try {
-        localStorage.setItem('magicPuzzleProgress', JSON.stringify([...completed]));
-      } catch (e) {
-        console.error('❌ Помилка збереження прогресу:', e);
-      }
-    }
+        // ========== ПРОРОЦТВА УКРАЇНСЬКОЮ ==========
+        const PROPHECIES_UA = [
+            "Все буде добре! ✨",
+            "Ти найкращий! 🌟",
+            "Мир переможе! 🕊️",
+            "Успіх попереду! 🚀",
+            "Любов знайде! 💖",
+            "Гроші прийдуть! 💰",
+            "Здоров'я зміцниться! 🌿",
+            "Сім'я підтримає! 👨‍👩‍👧‍👦",
+            "Друзі допоможуть! 🤝",
+            "Мрії збудуться! 🌈",
+            "Нові можливості! 🚪",
+            "Енергія повернеться! ⚡",
+            "Радість у серці! 😊",
+            "Мир у душі! ☮️",
+            "Сила зросте! 💪"
+        ];
 
-    const music = document.getElementById('bgMusic');
-    music.volume = 0.3;
-    let soundOn = false;
+        // ========== ГЛОБАЛЬНІ ЗМІННІ ==========
+        let scene, camera, renderer, sphere, ring, prophecyTextMesh;
+        let hands, cameraStream;
+        let isCounting = false;
+        let prophecyCount = 0;
+        let currentCountdown = CONFIG.COUNTDOWN_TIME;
+        let spherePosition = { x: 0, y: 0, z: -2 };
+        let handDetected = false;
+        let touchStartTime = 0;
+        let isTouching = false;
+        let originalTextScale = new THREE.Vector3();
 
-    function playMusic() {
-      if (soundOn && music.paused) {
-        music.play().catch(e => {
-          console.log('🔇 Автоплей музики заблоковано');
-        });
-      }
-    }
+        // ========== DOM ЕЛЕМЕНТИ ==========
+        const elements = {
+            loading: document.getElementById('loadingScreen'),
+            loadTimer: document.getElementById('loadTimer'),
+            handGuide: document.getElementById('handGuide'),
+            prophecyDisplay: document.getElementById('prophecyDisplay'),
+            prophecyText: document.getElementById('prophecyText'),
+            timer: document.getElementById('timer'),
+            countdownAnim: document.getElementById('countdownAnim'),
+            prophecyCount: document.getElementById('prophecyCount'),
+            cameraView: document.getElementById('cameraView'),
+            canvas3d: document.getElementById('canvas3d'),
+            testButton: document.getElementById('testButton')
+        };
 
-    function setLanguage(ua) {
-      isUA = ua;
-      document.querySelectorAll('[data-ua]').forEach(el => {
-        if (el.dataset.ua && el.dataset.en) {
-          el.textContent = ua ? el.dataset.ua : el.dataset.en;
-        }
-      });
-      document.getElementById('langBtn').textContent = ua ? 'EN' : 'UA';
-      document.getElementById('hintTextOnPuzzle').textContent = ua ?
-        'Перетягуй шматочки пальчиком!' : 'Drag the pieces with your finger!';
-      document.getElementById('loadingIndicator').textContent = ua ? 'Завантаження...' : 'Loading...';
-      document.getElementById('authorBtn').textContent = ua ? '👨‍💻 Автор AR' : '👨‍💻 Author AR';
-    }
-
-    document.getElementById('langBtn').onclick = () => {
-      console.log('🌐 Перемикання мови:', !isUA ? 'UA' : 'EN');
-      setLanguage(!isUA);
-    };
-
-    document.getElementById('soundBtn').onclick = () => {
-      soundOn = !soundOn;
-      if (soundOn) {
-        music.play().then(() => {
-          console.log('🔊 Музика увімкнена');
-        }).catch(e => {
-          console.error('❌ Помилка відтворення музики:', e);
-          soundOn = false;
-        });
-      } else {
-        music.pause();
-        console.log('🔇 Музика вимкнена');
-      }
-      document.getElementById('soundBtn').textContent = soundOn ? 'On' : 'Off';
-    };
-
-    const screens = {
-      show(name) {
-        console.log('🖥️ Перехід на екран:', name);
-        
-        ['start','hint','win'].forEach(s => {
-          const element = document.getElementById(s + 'Screen');
-          if (element) element.style.display = 'none';
-        });
-        
-        document.getElementById('puzzleCanvas').style.display = 'none';
-        document.getElementById('closeBtn').style.display = 'none';
-        document.getElementById('hintTextOnPuzzle').style.display = 'none';
-        document.getElementById('loadingIndicator').style.display = 'none';
-        
-        if (name === 'puzzle') {
-          document.getElementById('puzzleCanvas').style.display = 'block';
-          document.getElementById('closeBtn').style.display = 'block';
-          document.getElementById('hintTextOnPuzzle').style.display = 'block';
-          document.getElementById('authorBtn').style.display = 'none';
-        } else if (name === 'loading') {
-          document.getElementById('loadingIndicator').style.display = 'block';
-          document.getElementById('authorBtn').style.display = 'none';
-        } else {
-          const screenElement = document.getElementById(name + 'Screen');
-          if (screenElement) {
-            screenElement.style.display = 'flex';
-          }
-          document.getElementById('authorBtn').style.display = 'flex';
-        }
-      }
-    };
-
-    class PuzzleRenderer {
-      constructor(c) {
-        this.c = c;
-        this.ctx = c.getContext('2d', { alpha: true });
-        this.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-        window.addEventListener('orientationchange', () => {
-          setTimeout(() => this.resize(), 100);
-        });
-      }
-      
-      resize() {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        
-        this.c.width = width * this.pixelRatio;
-        this.c.height = height * this.pixelRatio;
-        this.c.style.width = width + 'px';
-        this.c.style.height = height + 'px';
-        
-        this.ctx.scale(this.pixelRatio, this.pixelRatio);
-        
-        if (currentPuzzle) {
-          setTimeout(() => currentPuzzle.render(), 50);
-        }
-      }
-      
-      render(p, dragged) {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        
-        this.ctx.clearRect(0, 0, width, height);
-        if (!p || !p.length) return;
-        
-        const maxSize = Math.min(width * 0.85, height * 0.65);
-        const cell = Math.max(maxSize / 3, 80);
-        const w = cell;
-        const h = cell * (p[0].height / p[0].width || 1);
-        const totalW = w * 3;
-        const totalH = h * 3;
-        const cx = (width - totalW) / 2;
-        const cy = (height - totalH) / 2;
-        
-        this.ctx.strokeStyle = 'gold';
-        this.ctx.lineWidth = 6;
-        this.ctx.strokeRect(cx - 10, cy - 10, totalW + 20, totalH + 20);
-        
-        p.forEach(piece => {
-          try {
-            this.ctx.drawImage(piece.image, piece.x, piece.y, w, h);
+        // ========== ІНІЦІАЛІЗАЦІЯ THREE.JS ==========
+        function initThreeJS() {
+            // Сцена
+            scene = new THREE.Scene();
+            scene.background = null;
             
-            if (piece === dragged) {
-              this.ctx.strokeStyle = '#ff1493';
-              this.ctx.lineWidth = 4;
-              this.ctx.strokeRect(piece.x, piece.y, w, h);
-            }
-          } catch (e) {
-            console.error('❌ Помилка відображення шматочка:', e);
-          }
-        });
-      }
-    }
-
-    class PuzzleEngine {
-      constructor(cfg, rend) {
-        this.cfg = cfg;
-        this.rend = rend;
-        this.p = [];
-        this.drag = null;
-        this.off = { x: 0, y: 0 };
-        this.init();
-      }
-      
-      async init() {
-        console.log('🧩 Ініціалізація пазла:', this.cfg.id);
-        try {
-          const img = await new Promise((resolve, reject) => {
-            const image = new Image();
-            image.crossOrigin = "anonymous";
-            image.onload = () => {
-              console.log('✅ Зображення завантажено:', this.cfg.image);
-              resolve(image);
-            };
-            image.onerror = (e) => {
-              console.error('❌ Помилка завантаження зображення:', this.cfg.image, e);
-              reject(e);
-            };
-            image.src = this.cfg.image + '?t=' + Date.now();
-          });
-          
-          await this.makePieces(img);
-          this.events();
-          this.rend.render(this.p);
-        } catch (error) {
-          console.error('❌ Критична помилка ініціалізації пазла:', error);
-          await this.fallback();
-        }
-      }
-      
-      async makePieces(img) {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        
-        const maxSize = Math.min(width * 0.85, height * 0.65);
-        const cell = Math.max(maxSize / 3, 80);
-        const sz = cell;
-        const ph = cell * (img.height / img.width || 1);
-        const totalW = sz * 3;
-        const totalH = ph * 3;
-        const ox = (width - totalW) / 2;
-        const oy = (height - totalH) / 2;
-        const sw = img.width / 3;
-        const sh = img.height / 3;
-        
-        const piecePromises = [];
-        
-        const safeAreaPadding = 20;
-        const minX = safeAreaPadding;
-        const maxX = width - sz - safeAreaPadding;
-        const minY = safeAreaPadding;
-        const maxY = height - ph - safeAreaPadding;
-        
-        if (maxX - minX < sz * 2 || maxY - minY < ph * 2) {
-          console.warn('⚠️ Екран занадто малий для правильного розміщення пазлів');
-        }
-
-        for (let r = 0; r < 3; r++) {
-          for (let c = 0; c < 3; c++) {
-            const promise = new Promise((resolve) => {
-              const cv = document.createElement('canvas');
-              cv.width = sw;
-              cv.height = sh;
-              const ctx = cv.getContext('2d');
-              ctx.drawImage(img, c * sw, r * sh, sw, sh, 0, 0, sw, sh);
-              
-              const pieceImage = new Image();
-              pieceImage.onload = () => {
-                let x, y;
-                let attempts = 0;
-                const maxAttempts = 50;
-                
-                do {
-                  x = minX + Math.random() * (maxX - minX);
-                  y = minY + Math.random() * (maxY - minY);
-                  attempts++;
-                  
-                  let hasOverlap = false;
-                  for (const existingPiece of this.p) {
-                    const distance = Math.hypot(
-                      x - existingPiece.x,
-                      y - existingPiece.y
-                    );
-                    if (distance < Math.max(sz, ph) * 1.2) {
-                      hasOverlap = true;
-                      break;
-                    }
-                  }
-                  
-                  if (!hasOverlap || attempts >= maxAttempts) {
-                    break;
-                  }
-                } while (attempts < maxAttempts);
-                
-                if (attempts >= maxAttempts) {
-                  console.warn('⚠️ Використовуємо гарантоване розміщення для шматочка');
-                  const gridCol = c;
-                  const gridRow = r;
-                  x = ox + (gridCol - 1) * sz * 1.5;
-                  y = oy + (gridRow - 1) * ph * 1.5;
-                  
-                  x = Math.max(minX, Math.min(maxX, x));
-                  y = Math.max(minY, Math.min(maxY, y));
-                }
-
-                this.p.push({
-                  image: pieceImage,
-                  width: sz,
-                  height: ph,
-                  x: x,
-                  y: y,
-                  tx: ox + c * sz,
-                  ty: oy + r * ph,
-                  ok: false
-                });
-                resolve();
-              };
-              pieceImage.onerror = () => {
-                console.warn('⚠️ Помилка завантаження шматочка');
-                resolve();
-              };
-              pieceImage.src = cv.toDataURL('image/jpeg', 0.8);
+            // Камера
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            // Рендерер з оптимізаціями
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: elements.canvas3d, 
+                alpha: true, 
+                antialias: true,
+                powerPreference: "high-performance",
+                preserveDrawingBuffer: false
             });
-            piecePromises.push(promise);
-          }
+            
+            // ⭐ ВАЖЛИВО: Налаштування кольору
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            
+            const pixelRatio = Math.min(window.devicePixelRatio, 1.5);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(pixelRatio);
+            
+            // Освітлення
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 10, 7);
+            scene.add(directionalLight);
+            
+            const pointLight = new THREE.PointLight(0xff00ff, 2, 15);
+            pointLight.position.set(0, 3, 0);
+            scene.add(pointLight);
+            
+            // Створення кулі
+            createMagicSphere();
+            
+            // Створення тексту пророцтва
+            createProphecyText();
+            
+            // Анімація
+            animate();
+            
+            // Імітоване завантаження
+            simulateLoading();
         }
-        
-        await Promise.all(piecePromises);
-        this.shuffle();
-      }
-      
-      shuffle() {
-        for (let i = this.p.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [this.p[i], this.p[j]] = [this.p[j], this.p[i]];
+
+        // ========== СТВОРЕННЯ МАГІЧНОЇ КУЛІ ==========
+        function createMagicSphere() {
+            // ОСНОВНА КУЛЯ з оптимізованою геометрією
+            const sphereGeometry = new THREE.SphereGeometry(
+                CONFIG.SPHERE_RADIUS, 
+                48, // ⭐ Зменшено з 64 для продуктивності
+                48
+            );
+            
+            const sphereMaterial = new THREE.MeshPhongMaterial({
+                color: 0x4a00e0,
+                transparent: true,
+                opacity: 0.9,
+                emissive: 0x8a2be2,
+                emissiveIntensity: 0.8,
+                shininess: 100,
+                side: THREE.DoubleSide
+            });
+            
+            sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            scene.add(sphere);
+            
+            // ВНУТРІШНЯ КУЛЯ
+            const innerGeometry = new THREE.SphereGeometry(CONFIG.SPHERE_RADIUS * 0.85, 32, 32);
+            const innerMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ffaa,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide
+            });
+            
+            const innerSphere = new THREE.Mesh(innerGeometry, innerMaterial);
+            sphere.add(innerSphere);
+            
+            // КІЛЬЦЕ ДЛЯ ТОРКАННЯ
+            const ringGeometry = new THREE.RingGeometry(
+                CONFIG.SPHERE_RADIUS * 1.2, 
+                CONFIG.SPHERE_RADIUS * 1.4, 
+                32
+            );
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffcc00,
+                transparent: true,
+                opacity: 0.6,
+                side: THREE.DoubleSide
+            });
+            
+            ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.rotation.x = -Math.PI / 2;
+            sphere.add(ring);
+            
+            // ЧАСТИНКИ
+            createParticles();
+            
+            // ТЕКСТИ ПРОРОЦТВ УКРАЇНСЬКОЮ
+            createUkrainianTextSprites();
         }
-      }
-      
-      events() {
-        const c = this.rend.c;
-        
-        const start = (e) => {
-          e.preventDefault();
-          const rect = c.getBoundingClientRect();
-          const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
-          const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-          
-          for (let i = this.p.length - 1; i >= 0; i--) {
-            const piece = this.p[i];
-            if (x >= piece.x && x <= piece.x + piece.width && 
-                y >= piece.y && y <= piece.y + piece.height) {
-              this.drag = piece;
-              this.off = { x: x - piece.x, y: y - piece.y };
-              this.p.splice(i, 1);
-              this.p.push(piece);
-              break;
+
+        // ========== ТЕКСТИ УКРАЇНСЬКОЮ (2D Спрайти) ==========
+        function createUkrainianTextSprites() {
+            const texts = [
+                "ВСЕ БУДЕ ДОБРЕ",
+                "ТИ КЛАСНИЙ",
+                "МИР ПЕРЕМОЖЕ", 
+                "УСПІХ ЧЕКАЄ",
+                "ЛЮБОВ ЗНАЙДЕ",
+                "ЩАСТЯ ПОВНИТЬ",
+                "ЗДОРОВ'Я РОСТЕ",
+                "МРІЇ ЗБУДУТЬСЯ"
+            ];
+            
+            const colors = [
+                0xFFD700, 0x00FFAA, 0xFF6B6B, 0x9370DB,
+                0xFF69B4, 0x00BFFF, 0x32CD32, 0xFFA500
+            ];
+            
+            const radius = CONFIG.SPHERE_RADIUS * 1.8;
+            
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const x = Math.sin(angle) * radius;
+                const z = Math.cos(angle) * radius;
+                
+                // ⭐ ОПТИМІЗОВАНИЙ CANVAS ДЛЯ МОБІЛЬНИХ
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                
+                // Оптимальний розмір для мобільних
+                canvas.width = 512;
+                canvas.height = 128;
+                
+                // Прозорий фон
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Шрифт з fallback
+                context.font = 'bold 60px "Arial", "Helvetica", sans-serif';
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                
+                // Обводка тексту
+                context.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+                context.lineWidth = 8;
+                context.strokeText(texts[i], canvas.width/2, canvas.height/2);
+                
+                // Заповнення тексту
+                const hexColor = colors[i];
+                const r = (hexColor >> 16) & 255;
+                const g = (hexColor >> 8) & 255;
+                const b = hexColor & 255;
+                context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                context.fillText(texts[i], canvas.width/2, canvas.height/2);
+                
+                // ⭐ ПРАВИЛЬНЕ СТВОРЕННЯ ТЕКСТУРИ
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.minFilter = THREE.LinearFilter;
+                texture.magFilter = THREE.LinearFilter;
+                texture.needsUpdate = true;
+                
+                const spriteMaterial = new THREE.SpriteMaterial({ 
+                    map: texture,
+                    transparent: true,
+                    opacity: 0.9,
+                    alphaTest: 0.1 // ⭐ Покращує рендеринг на мобільних
+                });
+                
+                const sprite = new THREE.Sprite(spriteMaterial);
+                sprite.position.set(x, 0, z);
+                sprite.scale.set(1.2, 0.3, 1);
+                sprite.lookAt(camera.position);
+                
+                sphere.add(sprite);
             }
-          }
-        };
-        
-        const move = (e) => {
-          if (!this.drag) return;
-          e.preventDefault();
-          const rect = c.getBoundingClientRect();
-          const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
-          const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-          
-          this.drag.x = x - this.off.x;
-          this.drag.y = y - this.off.y;
-          this.rend.render(this.p, this.drag);
-        };
-        
-        const end = () => {
-          if (!this.drag) return;
-          
-          const distance = Math.hypot(
-            this.drag.x + this.drag.width / 2 - (this.drag.tx + this.drag.width / 2),
-            this.drag.y + this.drag.height / 2 - (this.drag.ty + this.drag.height / 2)
-          );
-          
-          if (distance < 40) {
-            this.drag.x = this.drag.tx;
-            this.drag.y = this.drag.ty;
-            this.drag.ok = true;
-            this.check();
-          }
-          
-          this.drag = null;
-          this.rend.render(this.p);
-        };
-        
-        c.addEventListener('mousedown', start);
-        c.addEventListener('touchstart', start, { passive: false });
-        c.addEventListener('mousemove', move);
-        c.addEventListener('touchmove', move, { passive: false });
-        c.addEventListener('mouseup', end);
-        c.addEventListener('touchend', end);
-        c.addEventListener('touchcancel', end);
-      }
-      
-      check() {
-        if (this.p.every(p => p.ok)) {
-          console.log('🎉 Пазл завершено:', this.cfg.id);
-          completed.add(this.cfg.id);
-          saveProgress();
-          
-          confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-          
-          setTimeout(() => {
-            screens.show('win');
+        }
+
+        // ========== ЧАСТИНКИ ==========
+        function createParticles() {
+            const particleCount = 150; // ⭐ Зменшено для продуктивності
+            const particles = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                const radius = CONFIG.SPHERE_RADIUS * 1.5;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                
+                positions[i] = radius * Math.sin(phi) * Math.cos(theta);
+                positions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                positions[i + 2] = radius * Math.cos(phi);
+            }
+            
+            particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const particleMaterial = new THREE.PointsMaterial({
+                size: 0.03,
+                color: 0x8a2be2,
+                transparent: true,
+                opacity: 0.7,
+                blending: THREE.AdditiveBlending
+            });
+            
+            const particleSystem = new THREE.Points(particles, particleMaterial);
+            sphere.add(particleSystem);
+            
+            particleSystem.userData.animate = true;
+            particleSystem.userData.originalPositions = positions.slice();
+        }
+
+        // ========== СТВОРЕННЯ 3D ТЕКСТУ ПРОРОЦТВА (ВИПРАВЛЕНА ВЕРСІЯ) ==========
+        function createProphecyText() {
+            prophecyTextGroup = new THREE.Group();
+            scene.add(prophecyTextGroup);
+
+            // ⭐ ПРАВИЛЬНА ГЕОМЕТРІЯ з оптимальним розміром
+            const planeGeometry = new THREE.PlaneGeometry(3, 0.8);
+            
+            // ⭐ ПРАВИЛЬНИЙ МАТЕРІАЛ
+            const planeMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0,
+                side: THREE.DoubleSide,
+                depthWrite: false // ⭐ Покращує рендеринг прозорих об'єктів
+            });
+
+            prophecyTextMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+            prophecyTextGroup.add(prophecyTextMesh);
+            prophecyTextGroup.visible = false;
+
+            // Зберігаємо початковий масштаб
+            originalTextScale.copy(prophecyTextMesh.scale);
+        }
+
+        // ========== ОНОВЛЕННЯ 3D ТЕКСТУ (ВИПРАВЛЕНА ВЕРСІЯ) ==========
+        function update3DText(text) {
+            // ⭐ ОПТИМАЛЬНИЙ РОЗМІР CANVAS
+            const canvas = document.createElement('canvas');
+            const size = 1024;
+            canvas.width = size;
+            canvas.height = size / 4; // 1024 × 256 - оптимальне співвідношення
+            
+            const ctx = canvas.getContext('2d');
+            
+            // ⭐ ГРАДІЄНТНИЙ ФОН
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+            gradient.addColorStop(1, 'rgba(230, 240, 255, 0.95)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // ⭐ ШРИФТ З FALLBACK ДЛЯ УКРАЇНСЬКИХ ЛІТЕР
+            ctx.font = 'bold 140px "Arial", "Helvetica", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // ⭐ ОБВОДКА (більш виразна)
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 12;
+            ctx.strokeText(text, canvas.width / 2, canvas.height / 2);
+            
+            // ⭐ ОСНОВНИЙ КОЛІР
+            ctx.fillStyle = '#1565c0';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            
+            // ⭐ ЕФЕКТ БЛИСКУ
+            ctx.fillStyle = '#4fc3f7';
+            ctx.globalAlpha = 0.4;
+            ctx.fillText(text, canvas.width / 2 - 4, canvas.height / 2 - 4);
+            
+            // ⭐ ПРАВИЛЬНЕ СТВОРЕННЯ ТЕКСТУРИ
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            texture.needsUpdate = true; // ⭐ ВАЖЛИВО: оновлюємо текстуру
+            
+            // ⭐ ПРАВИЛЬНЕ ОНОВЛЕННЯ МАТЕРІАЛУ
+            prophecyTextMesh.material.map = texture;
+            prophecyTextMesh.material.opacity = 1;
+            prophecyTextMesh.material.transparent = true;
+            prophecyTextMesh.material.needsUpdate = true; // ⭐ ВАЖЛИВО: оновлюємо матеріал
+            
+            prophecyTextGroup.visible = true;
+        }
+
+        // ========== ІНІЦІАЛІЗАЦІЯ ТРЕКІНГУ РУК ==========
+        function initHandTracking() {
+            hands = new Hands({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                }
+            });
+
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.7
+            });
+
+            hands.onResults(onHandResults);
+
+            // Запуск камери
+            const camera = new Camera(elements.cameraView, {
+                onFrame: async () => {
+                    await hands.send({ image: elements.cameraView });
+                },
+                width: 640,
+                height: 480
+            });
+            
+            camera.start().catch(err => {
+                console.error("Помилка камери:", err);
+                elements.handGuide.innerHTML = `
+                    <div style="color: #ff6b6b; font-size: 24px;">⚠️ Помилка камери</div>
+                    <div style="color: #ccc; margin-top: 10px;">Натисніть кнопку тесту</div>
+                `;
+                elements.testButton.style.display = 'block';
+            });
+        }
+
+        // ========== ОБРОБКА РЕЗУЛЬТАТІВ ТРЕКІНГУ ==========
+        function onHandResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                if (!handDetected) {
+                    handDetected = true;
+                    elements.handGuide.style.opacity = '0';
+                    setTimeout(() => {
+                        elements.handGuide.style.display = 'none';
+                    }, 500);
+                }
+                
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // ПОЗИЦІЯ ДОЛОНІ
+                const wrist = landmarks[0];
+                const middleBase = landmarks[9];
+                
+                const palmX = (wrist.x + middleBase.x) / 2;
+                const palmY = (wrist.y + middleBase.y) / 2;
+                
+                // Мапування на 3D координати
+                spherePosition.x = (palmX * 2 - 1) * 3;
+                spherePosition.y = -(palmY * 2 - 1) * 2 + 1;
+                
+                // ПЕРЕВІРКА ТОРКАННЯ
+                const indexTip = landmarks[8];
+                const touchX = (indexTip.x * 2 - 1) * 3;
+                const touchY = -(indexTip.y * 2 - 1) * 2 + 1;
+                
+                const distance = Math.sqrt(
+                    Math.pow(touchX - spherePosition.x, 2) + 
+                    Math.pow(touchY - spherePosition.y, 2)
+                );
+                
+                // ЯКЩО ТОРКАННЯ
+                if (distance < CONFIG.TOUCH_DISTANCE) {
+                    if (!isTouching) {
+                        isTouching = true;
+                        touchStartTime = Date.now();
+                        ring.material.color.setHex(0x00ffff);
+                        ring.material.opacity = 0.8;
+                    }
+                    
+                    // ПЕРЕВІРЯЄМО ЧИ ПРОЙШЛО 3 СЕКУНДИ
+                    const touchDuration = (Date.now() - touchStartTime) / 1000;
+                    if (touchDuration >= CONFIG.COUNTDOWN_TIME && !isCounting) {
+                        startCountdown();
+                    }
+                } else {
+                    if (isTouching) {
+                        isTouching = false;
+                        ring.material.color.setHex(0xffcc00);
+                        ring.material.opacity = 0.6;
+                    }
+                }
+            } else {
+                if (handDetected) {
+                    handDetected = false;
+                    elements.handGuide.style.display = 'block';
+                    elements.handGuide.style.opacity = '1';
+                }
+                isTouching = false;
+            }
+        }
+
+        // ========== ЗАПУСК ВІДЛІКУ 3 СЕКУНД ==========
+        function startCountdown() {
+            if (isCounting) return;
+            
+            isCounting = true;
+            currentCountdown = CONFIG.COUNTDOWN_TIME;
+            
+            // ПОКАЗУЄМО ТАЙМЕР
+            elements.timer.style.opacity = '1';
+            elements.timer.textContent = currentCountdown;
+            
+            // АНІМАЦІЯ КУЛІ
+            sphere.material.color.setHex(0xff00ff);
+            sphere.material.emissive.setHex(0xff00ff);
+            sphere.material.emissiveIntensity = 2;
+            sphere.material.opacity = 1;
+            
+            // АНІМАЦІЯ КІЛЬЦЯ
+            ring.material.color.setHex(0x00ffff);
+            ring.material.opacity = 1;
+            
+            // ВІДЛІК 3 СЕКУНД
+            const countdownInterval = setInterval(() => {
+                currentCountdown--;
+                elements.timer.textContent = currentCountdown;
+                
+                // АНІМАЦІЯ ТАЙМЕРА
+                elements.countdownAnim.textContent = currentCountdown;
+                elements.countdownAnim.style.opacity = '1';
+                elements.countdownAnim.style.color = currentCountdown === 0 ? '#00ff00' : '#ff0000';
+                
+                setTimeout(() => {
+                    elements.countdownAnim.style.opacity = '0';
+                }, 500);
+                
+                // ЗМІНА КОЛЬОРУ КУЛІ
+                const colors = [0xff0000, 0xff9900, 0xffff00, 0x00ff00];
+                sphere.material.color.setHex(colors[currentCountdown] || 0xff00ff);
+                sphere.material.emissive.setHex(colors[currentCountdown] || 0xff00ff);
+                
+                // КІНЕЦЬ ВІДЛІКУ
+                if (currentCountdown <= 0) {
+                    clearInterval(countdownInterval);
+                    showProphecy();
+                }
+            }, 1000);
+        }
+
+        // ========== ПОКАЗ ПРОРОЦТВА (ВИПРАВЛЕНА ВЕРСІЯ) ==========
+        function showProphecy() {
+            // ВИБИРАЄМО ПРОРОЦТВО
+            const prophecy = PROPHECIES_UA[Math.floor(Math.random() * PROPHECIES_UA.length)];
+            
+            // ⭐ ВІБРАЦІЯ
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100, 50, 100]);
+            }
+            
+            // Оновлюємо HTML текст
+            elements.prophecyText.textContent = prophecy;
+            elements.prophecyDisplay.style.display = 'block';
             setTimeout(() => {
-              this.cleanup();
-              currentPuzzle = null;
-              nextPuzzle();
-            }, 3000);
-          }, 1000);
+                elements.prophecyDisplay.style.opacity = '1';
+            }, 10);
+            
+            // ⭐ ОНОВЛЮЄМО 3D ТЕКСТ
+            update3DText(prophecy);
+            
+            // ⭐ ПРАВИЛЬНЕ ПОЗИЦІОНУВАННЯ ТЕКСТУ
+            prophecyTextGroup.position.copy(sphere.position);
+            prophecyTextGroup.position.y += CONFIG.SPHERE_RADIUS * 2.5;
+            
+            // ⭐ ПРАВИЛЬНЕ МАСШТАБУВАННЯ
+            prophecyTextMesh.scale.setScalar(CONFIG.TEXT_SCALE_MULTIPLIER);
+            
+            // Текст завжди дивиться на камеру
+            prophecyTextGroup.lookAt(camera.position);
+            
+            // ЕФЕКТИ КУЛІ
+            sphere.material.color.setHex(0x00ffaa);
+            sphere.material.emissive.setHex(0x00ffaa);
+            sphere.material.emissiveIntensity = 3;
+            
+            // ОНОВЛЮЄМО ЛІЧИЛЬНИК
+            prophecyCount++;
+            elements.prophecyCount.textContent = prophecyCount;
+            
+            // ПРИБИРАЄМО ТАЙМЕР
+            setTimeout(() => {
+                elements.timer.style.opacity = '0';
+            }, 500);
+            
+            // ⭐ СКИДАННЯ ЧЕРЕЗ 5 СЕКУНД З АНІМАЦІЄЮ
+            setTimeout(() => {
+                resetAfterProphecy();
+            }, CONFIG.PROPHECY_TIME * 1000);
         }
-      }
-      
-      cleanup() {
-        const c = this.rend.c;
-        c.replaceWith(c.cloneNode(true));
-      }
-      
-      async fallback() {
-        console.log('🔄 Використання резервного пазла');
-        const colors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F','#BB8FCE'];
-        const size = Math.min(window.innerWidth, window.innerHeight) * 0.18;
-        
-        const safeAreaPadding = 20;
-        const minX = safeAreaPadding;
-        const maxX = window.innerWidth - size - safeAreaPadding;
-        const minY = safeAreaPadding;
-        const maxY = window.innerHeight - size - safeAreaPadding;
-        
-        for (let i = 0; i < 9; i++) {
-          const canvas = document.createElement('canvas');
-          canvas.width = size;
-          canvas.height = size;
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = colors[i];
-          ctx.fillRect(0, 0, size, size);
-          ctx.fillStyle = 'white';
-          ctx.font = 'bold 32px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(i + 1, size / 2, size / 2);
-          
-          const img = new Image();
-          await new Promise(resolve => {
-            img.onload = resolve;
-            img.src = canvas.toDataURL();
-          });
-          
-          const row = Math.floor(i / 3);
-          const col = i % 3;
-          const total = size * 3;
-          const ox = (window.innerWidth - total) / 2;
-          const oy = (window.innerHeight - total) / 2;
-          
-          const x = Math.max(minX, Math.min(maxX, 
-            ox + Math.random() * (window.innerWidth - size * 2)));
-          const y = Math.max(minY, Math.min(maxY, 
-            oy + Math.random() * (window.innerHeight - size * 2)));
-          
-          this.p.push({
-            image: img,
-            width: size,
-            height: size,
-            x: x,
-            y: y,
-            tx: ox + col * size,
-            ty: oy + row * size,
-            ok: false
-          });
+
+        // ========== СКИДАННЯ ПІСЛЯ ПРОРОЦТВА ==========
+        function resetAfterProphecy() {
+            // Анімація зникнення тексту
+            prophecyTextMesh.material.opacity = 0;
+            
+            setTimeout(() => {
+                prophecyTextGroup.visible = false;
+                prophecyTextMesh.scale.copy(originalTextScale);
+            }, 500);
+            
+            // Скидаємо HTML відображення
+            elements.prophecyDisplay.style.opacity = '0';
+            setTimeout(() => {
+                elements.prophecyDisplay.style.display = 'none';
+            }, 500);
+            
+            // Скидаємо кулю
+            resetSphere();
         }
-        this.events();
-        this.rend.render(this.p);
-      }
-    }
 
-    function nextPuzzle() {
-      const remaining = PUZZLES.filter(p => !completed.has(p.id));
-      
-      if (remaining.length === 0) {
-        console.log('🏆 Всі пазли завершено!');
-        screens.show('start');
-        return;
-      }
-      
-      screens.show('hint');
-      
-      if (arSystem) {
-        setTimeout(() => {
-          arSystem.stop();
-          setTimeout(() => {
-            arSystem.start();
-            console.log('🔄 AR система перезапущена');
-          }, 300);
-        }, 500);
-      }
-    }
+        // ========== СКИДАННЯ КУЛІ ==========
+        function resetSphere() {
+            isCounting = false;
+            isTouching = false;
+            
+            sphere.material.color.setHex(0x4a00e0);
+            sphere.material.emissive.setHex(0x8a2be2);
+            sphere.material.emissiveIntensity = 0.8;
+            sphere.material.opacity = 0.9;
+            
+            ring.material.color.setHex(0xffcc00);
+            ring.material.opacity = 0.6;
+        }
 
-    document.getElementById('startBtn').onclick = async () => {
-      if (started) return;
-      started = true;
-      console.log('🎬 Запуск додатку...');
-      
-      try {
-        screens.show('loading');
-        
-        await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
+        // ========== АНІМАЦІЯ ==========
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (sphere) {
+                // ОБЕРТАННЯ КУЛІ
+                sphere.rotation.y += 0.005;
+                sphere.rotation.x += 0.002;
+                
+                // ПЛАВНЕ ПЕРЕМІЩЕННЯ
+                sphere.position.x += (spherePosition.x - sphere.position.x) * 0.2;
+                sphere.position.y += (spherePosition.y - sphere.position.y) * 0.2;
+                
+                // ПУЛЬСАЦІЯ КІЛЬЦЯ
+                if (ring && !isCounting) {
+                    const pulse = Math.sin(Date.now() * 0.003) * 0.2 + 1;
+                    ring.scale.set(pulse, pulse, 1);
+                }
+                
+                // АНІМАЦІЯ ЧАСТИНОК
+                sphere.children.forEach(child => {
+                    if (child.type === 'Points' && child.userData.animate) {
+                        const positions = child.geometry.attributes.position.array;
+                        const originals = child.userData.originalPositions;
+                        
+                        for (let i = 0; i < positions.length; i += 3) {
+                            positions[i] = originals[i] + Math.sin(Date.now() * 0.001 + i) * 0.05;
+                            positions[i + 1] = originals[i + 1] + Math.cos(Date.now() * 0.001 + i) * 0.05;
+                            positions[i + 2] = originals[i + 2] + Math.sin(Date.now() * 0.001 + i * 0.5) * 0.05;
+                        }
+                        
+                        child.geometry.attributes.position.needsUpdate = true;
+                    }
+                });
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        // ========== ЗАПУСК ДОДАТКУ ==========
+        window.addEventListener('load', () => {
+            initThreeJS();
+            initHandTracking();
+            
+            // Ресайз
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            // Глобальна функція для тесту
+            window.startCountdown = startCountdown;
         });
-        
-        console.log('📹 Камера успішно запущена');
-        
-        arSystem = document.querySelector('a-scene').systems['mindar-image-system'];
-        arSystem.start();
-        console.log('🎯 AR система запущена');
-        
-        screens.show('hint');
-        playMusic();
-        
-      } catch (error) {
-        console.error('❌ Помилка доступу до камери:', error);
-        alert(isUA ? "Дозволь доступ до камери!" : "Allow camera access!");
-        started = false;
-        screens.show('start');
-      }
-    };
 
-    document.getElementById('closeBtn').onclick = () => {
-      console.log('🔙 Закриття пазла');
-      if (currentPuzzle) {
-        currentPuzzle.cleanup();
-        currentPuzzle = null;
-      }
-      nextPuzzle();
-    };
-
-    document.querySelector('a-scene').addEventListener('loaded', () => {
-      console.log('🎮 A-Frame сцена завантажена');
-      arSystem = document.querySelector('a-scene').systems['mindar-image-system'];
-      
-      PUZZLES.forEach(cfg => {
-        const entity = document.createElement('a-entity');
-        entity.setAttribute('mindar-image-target', `targetIndex: ${cfg.id}`);
-        
-        entity.addEventListener('targetFound', () => {
-          console.log('🎯 Знайдено маркер:', cfg.id);
-          if (currentPuzzle || completed.has(cfg.id)) {
-            console.log('⏭️ Пропускаємо пазл');
-            return;
-          }
-          currentPuzzle = new PuzzleEngine(cfg, new PuzzleRenderer(document.getElementById('puzzleCanvas')));
-          screens.show('puzzle');
-        });
-        
-        entity.addEventListener('targetLost', () => {
-          console.log('👻 Втрачено маркер:', cfg.id);
-        });
-        
-        document.querySelector('a-scene').appendChild(entity);
-      });
-      
-      setLanguage(false);
-      console.log('✅ Додаток ініціалізовано');
-    });
-
-    window.addEventListener('error', (e) => {
-      console.error('💥 Глобальна помилка:', e.error);
-    });
-
-    window.addEventListener('unhandledrejection', (e) => {
-      console.error('💥 Необроблена проміс-помилка:', e.reason);
-    });
-
-    screens.show('start');
-  </script>
+        // ========== СИМУЛЯЦІЯ ЗАВАНТАЖЕННЯ ==========
+        function simulateLoading() {
+            let loadTime = 3;
+            const loadInterval = setInterval(() => {
+                loadTime--;
+                elements.loadTimer.textContent = loadTime;
+                
+                if (loadTime <= 0) {
+                    clearInterval(loadInterval);
+                    elements.loading.style.opacity = '0';
+                    setTimeout(() => {
+                        elements.loading.style.display = 'none';
+                        elements.testButton.style.display = 'block';
+                        setTimeout(() => {
+                            elements.testButton.style.display = 'none';
+                        }, 5000);
+                    }, 500);
+                }
+            }, 1000);
+        }
+    </script>
 </body>
 </html>
-
-
